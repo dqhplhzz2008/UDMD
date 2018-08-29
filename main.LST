@@ -1,0 +1,216 @@
+C51 COMPILER V9.52.0.0   MAIN                                                              07/03/2016 19:54:36 PAGE 1   
+
+
+C51 COMPILER V9.52.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: D:\Keil\C51\BIN\C51.EXE main.c BROWSE DEBUG OBJECTEXTEND TABS(2)
+
+line level    source
+
+   1           #include<reg52.h>
+   2           #include <intrins.h>
+   3          
+   4           /*宏定义*/
+   5           #define uchar unsigned char
+   6           #define uint unsigned int
+   7          
+   8           /*端口定义部分*/
+   9           sbit Rx = P3^2;      //回声接收端口
+  10           sbit Tx = P1^0;      //超声触发端口
+  11           sbit Beep = P2^0 ;   // 蜂鸣器　
+  12          
+  13           /*变量及数组定义部分*/
+  14           uchar code table[]={0x18,0x7b,0x2c,0x29,0x4b,0x89,0x88,0x3b,0x08,0x09,0x40,0x8e};
+  15           uchar code wei_table[]={0xe9,0xd9,0xb9,0x79};
+  16           uint outcomeH=0;outcomeL=0;
+  17           uchar disbuff[4];
+  18           uchar succeed_flag=0,flag_300ms=0;
+  19           long int distance=0;
+  20          
+  21           
+  22           /*函数声明部分*/
+  23           void Init(void);
+  24           void Delayms(uint);
+  25           void Alarm(uchar t);
+  26           void Display(uchar num[]);
+  27           void Measure_T(void);
+  28           long Measure_R(void);
+  29           void Conversion(long int number,uchar wei[]);
+  30           void delay_12us();
+  31          
+  32          
+  33           /*主函数main()*/
+  34           void main()
+  35           {   
+  36   1         Init();
+  37   1         while(1)
+  38   1         {
+  39   2           if(flag_300ms==1)
+  40   2         {
+  41   3           flag_300ms=0;
+  42   3           Measure_T();
+  43   3           distance=Measure_R();
+  44   3           if(distance<100)
+  45   3             Alarm(1);
+  46   3           Conversion(distance,disbuff);
+  47   3         
+  48   3         }
+  49   2         
+  50   2         }
+  51   1       }
+  52            /*系统初始化*/
+  53           void Init(void)
+  54           {                         
+  55   1          TMOD=0x11;
+C51 COMPILER V9.52.0.0   MAIN                                                              07/03/2016 19:54:36 PAGE 2   
+
+  56   1        TR0=1;        //启动定时器0
+  57   1          IT0=0;        //由高电平变低电平，触发外部中断
+  58   1          ET0=1;        //打开定时器0中断
+  59   1          EX0=0;        //关闭外部中断
+  60   1        TR0=1;
+  61   1          EA=1;         //打开总中断0 
+  62   1        Tx=0;
+  63   1       }
+  64            /*延时函数*/
+  65           void Delayms(uint xms)
+  66           {
+  67   1         uint m,j;
+  68   1         for(m=xms;m>0;m--)
+  69   1           for(j=110;j>0;j--);
+  70   1       }
+  71            /*蜂鸣器*/
+  72           void Alarm(uchar t)  // t表示发声的次数 
+  73           {
+  74   1         uchar n;
+  75   1         for(n = 0;n < t;n++)
+  76   1         {
+  77   2           Beep = 0;
+  78   2         Delayms(200);
+  79   2           Beep = 1;
+  80   2         }
+  81   1       }
+  82           /*数码管显示*/
+  83           void Display(uchar num[])
+  84           {
+  85   1         static uchar i;
+  86   1        
+  87   1         i++;
+  88   1         if(i>=4)
+  89   1           i=0;
+  90   1         P2=wei_table[i];
+  91   1         if(i==3)
+  92   1         {  
+  93   2            if(num[i]==3)
+  94   2            P0=0x21;
+  95   2          else if(num[i]==2)
+  96   2                 P0=0x24;
+  97   2               else if(num[i]==1)
+  98   2                      P0=0x73;
+  99   2                    else
+ 100   2                      P0=0x10;
+ 101   2         }
+ 102   1         else
+ 103   1         {
+ 104   2           P0=table[num[i]];
+ 105   2         }
+ 106   1       }
+ 107            /*超声波发送*/
+ 108           void Measure_T(void)
+ 109           {
+ 110   1         Tx=1;
+ 111   1         delay_12us();
+ 112   1         Tx=0;           //产生一个12us的脉冲，在Tx引脚  
+ 113   1       }
+ 114            /*回波检测*/
+ 115           long int Measure_R(void)
+ 116           {
+ 117   1         long int distance_data;
+C51 COMPILER V9.52.0.0   MAIN                                                              07/03/2016 19:54:36 PAGE 3   
+
+ 118   1         while(Rx==0);   //等待Rx回波引脚变高电平
+ 119   1         succeed_flag=0; //清测量成功标志
+ 120   1         EX0=1;          //打开外部中断
+ 121   1         TH1=0;          //定时器1清零
+ 122   1         TL1=0;          //定时器1清零
+ 123   1         TF1=0;          //定时器1清除标志位
+ 124   1         TR1=1;          //启动定时器1
+ 125   1         EA=1;       //启动总中断
+ 126   1         while(TH1 < 60);//等待测量的结果，周期65.535毫秒（可用中断实现）  
+ 127   1         TR1=0;          //关闭定时器1
+ 128   1         EX0=0;          //关闭外部中断
+ 129   1         if(succeed_flag==1)
+ 130   1         {  
+ 131   2           distance_data=outcomeH*256+outcomeL;                //测量结果的高8位
+ 132   2           distance_data/=6;                  //微秒的单位除以58等于厘米     
+ 133   2         }                                      
+ 134   1         if(succeed_flag==0)
+ 135   1         {
+ 136   2           distance_data=0;                    //没有回波则清零
+ 137   2         }
+ 138   1      
+ 139   1         return distance_data;
+ 140   1       }
+ 141            /*数字分解，用于数码管显示*/
+ 142           void Conversion(long int number,uchar wei[])
+ 143           {
+ 144   1         wei[3]=number/1000;
+ 145   1         wei[2]=number/100%10;
+ 146   1         wei[1]=number%100/10;
+ 147   1         wei[0]=number%10;
+ 148   1       }
+ 149            /*延时函数 12us*/
+ 150           void delay_12us()
+ 151           {
+ 152   1         _nop_();_nop_();_nop_();_nop_();_nop_();_nop_();
+ 153   1         _nop_();_nop_();_nop_();_nop_();_nop_();_nop_();
+ 154   1       }
+ 155            /*外部中断0，用于检测回波*/
+ 156           INTO_()  interrupt 0   // 外部中断是0号
+ 157           {    
+ 158   1           outcomeH=TH1;    //取出定时器的值
+ 159   1           outcomeL=TL1;    //取出定时器的值
+ 160   1           succeed_flag=1;   //至成功测量的标志
+ 161   1           EX0=0;            //关闭外部中断
+ 162   1       }
+ 163            /*定时器0中断 2ms*/
+ 164            Timer0() interrupt 1 //定时器0中断是1号
+ 165           {
+ 166   1         static uchar Flag_2ms,Beep_num;
+ 167   1         TH0=(65536-2000)/256;
+ 168   1         TL0=(65536-2000)%256;
+ 169   1         Flag_2ms++;
+ 170   1        
+ 171   1         Display(disbuff); 
+ 172   1        
+ 173   1         if(Flag_2ms>=150)
+ 174   1         {
+ 175   2           Flag_2ms=0;
+ 176   2         flag_300ms=1;
+ 177   2         }
+ 178   1      
+ 179   1       }
+C51 COMPILER V9.52.0.0   MAIN                                                              07/03/2016 19:54:36 PAGE 4   
+
+*** WARNING C280 IN LINE 166 OF main.c: 'Beep_num': unreferenced local variable
+ 180            //定时器1中断,用做超声波测距计时
+ 181           Timer1() interrupt 3 //定时器0中断是1号
+ 182           {
+ 183   1         TH1=0;
+ 184   1         TL1=0;
+ 185   1       }
+ 186          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    617    ----
+   CONSTANT SIZE    =     16    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     17      14
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  0 ERROR(S)

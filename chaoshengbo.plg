@@ -1,0 +1,16 @@
+<html>
+<body>
+<pre>
+<h1>礦ision Build Log</h1>
+<h2>Project:</h2>
+G:\大学\课程设计\生产实习-超声波测距大三下\code\chaoshengbo.uvproj
+Project File Date:  06/29/2016
+
+<h2>Output:</h2>
+Rebuild target 'Target 1'
+assembling STARTUP.A51...
+compiling main.c...
+main.c(166): warning C280: 'Beep_num': unreferenced local variable
+linking...
+Program Size: data=36.0 xdata=0 code=1199
+"chaoshengbo" - 0 Error(s), 1 Warning(s).
